@@ -1,0 +1,19 @@
+# FAST-LIO2 — тестовый ROS2-пакет из ТЗ.
+# Апстрим написан на Eigen и PCL и сам CUDA не использует; в образе CUDA
+# доступна пакету (nvcc, CUDAToolkit находятся из CMake), а доказательство
+# фактической компиляции CUDA даёт cuda-probe.
+name: fast-lio2
+description: FAST-LIO2, LiDAR-инерциальная одометрия (HKU MaRS Lab)
+repo: https://github.com/hku-mars/FAST_LIO
+ref: ros2
+src_subdir: .
+platforms: [x86-gpu, jetson-agx-jp6, jetson-nano-jp7]
+apt_deps:
+  - libpcl-dev
+  - libeigen3-dev
+  - libgoogle-glog-dev
+vcs_file: fast-lio2.repos
+pre_build: fast-lio2-prebuild.sh
+rosdep_skip_keys: livox_ros_driver2
+cmake_args:
+  - -DCMAKE_BUILD_TYPE=Release

@@ -1,0 +1,46 @@
+name: validate
+
+# Быстрая проверка конфигурации без Docker. Ловит опечатки в манифестах до
+# того, как они превратятся в час впустую потраченной кросс-сборки.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  validate:
+    name: Конфигурация
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Согласованность платформ и манифестов
+        run: python3 scripts/validate.py
+
+      - name: Синтаксис shell-скриптов
+        run: |
+          for f in scripts/*.sh packages/*.sh; do
+            bash -n "$f" && echo "ok  $f"
+          done
+
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=warning scripts/*.sh packages/*.sh
+
+      - name: hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          dockerfile: '*.Dockerfile'
+          # DL3008 (пин версий apt) сознательно игнорируется: версии пакетов
+          # ROS и CUDA задаются через репозиторий и тег релиза L4T.
+          ignore: DL3008,DL3013
+          failure-threshold: error
+
+      - name: Матрица собирается
+        run: |
+          echo "Базовые образы:"; python3 scripts/generate-matrix.py bases | python3 -m json.tool
+          echo "Пакеты:";        python3 scripts/generate-matrix.py packages | python3 -m json.tool

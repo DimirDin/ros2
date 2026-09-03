@@ -1,0 +1,53 @@
+# Реестр целевых платформ. Единственный источник правды: и сборка базовых
+# образов, и матрица сборки пакетов читают этот файл.
+#
+# Проверено 2026-09-03 обращением к repo.download.nvidia.com.
+
+platforms:
+  - id: x86-gpu
+    description: x86_64 с дискретной NVIDIA GPU
+    dockerfile: base/x86-gpu.Dockerfile
+    docker_platform: linux/amd64
+    ros_distro: humble
+    ubuntu: "22.04"
+    cuda_version: "12.6"
+    # Turing (RTX 20xx / T4), Ampere (RTX 30xx / A100), Ada (RTX 40xx).
+    cuda_arch: "75;86;89"
+    build_methods: [native]
+    runners:
+      native: ubuntu-22.04
+
+  - id: jetson-agx-jp6
+    description: Jetson AGX Orin 64GB, JetPack 6.2.2 (L4T r36.5, ядро 5.15)
+    dockerfile: base/jetson-jp6.Dockerfile
+    docker_platform: linux/arm64
+    ros_distro: humble
+    ubuntu: "22.04"
+    cuda_version: "12.6"
+    cuda_arch: "87"
+    l4t_release: r36.5
+    l4t_soc: t234
+    jetpack: "6.2.2"
+    build_methods: [cross, native-arm, native]
+    runners:
+      cross: ubuntu-22.04
+      native-arm: ubuntu-24.04-arm
+      native: [self-hosted, jetson, jp6]
+
+  - id: jetson-nano-jp7
+    description: Jetson Orin Nano, JetPack 7.2 (L4T r39.2)
+    dockerfile: base/jetson-jp7.Dockerfile
+    docker_platform: linux/arm64
+    # Humble под Ubuntu 24.04 из apt не существует — см. docs/architecture.md.
+    ros_distro: jazzy
+    ubuntu: "24.04"
+    cuda_version: "13.2"
+    cuda_arch: "87"
+    l4t_release: r39.2
+    l4t_soc: som
+    jetpack: "7.2"
+    build_methods: [cross, native-arm, native]
+    runners:
+      cross: ubuntu-22.04
+      native-arm: ubuntu-24.04-arm
+      native: [self-hosted, jetson, jp7]

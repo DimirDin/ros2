@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>cuda_probe</name>
+  <version>1.0.0</version>
+  <description>
+    Минимальный ROS2-пакет с CUDA-ядром. Служит доказательством того, что
+    в собранном образе CUDA не просто присутствует, а действительно применяется
+    при компиляции под целевую архитектуру GPU.
+  </description>
+  <maintainer email="2gridin@gmail.com">DimirDin</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

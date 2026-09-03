@@ -1,0 +1,11 @@
+# Контекст сборки: в образ попадают только src/ и packages/, остальное —
+# лишние байты, которые пересылаются на каждый build.
+.git
+.github
+docs
+base
+LICENSE
+README.md
+*.md
+__pycache__
+.DS_Store

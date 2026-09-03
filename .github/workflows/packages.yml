@@ -1,0 +1,171 @@
+name: packages
+
+# Сборка ROS2-пакетов поверх базовых образов.
+# Матрица целиком выводится из packages/*.yaml — чтобы добавить пакет,
+# этот файл править не нужно.
+
+on:
+  push:
+    branches: [main]
+    # Фильтр paths к пушу тегов не применяется, поэтому сборка релиза
+    # запустится независимо от того, какие файлы менялись.
+    tags: ['v*']
+    paths:
+      - 'packages/**'
+      - 'templates/**'
+      - 'src/**'
+      - 'platforms.yaml'
+      - 'scripts/**'
+      - '.github/workflows/packages.yml'
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Пакеты через запятую (пусто = все)'
+        required: false
+        default: ''
+      platforms:
+        description: 'Платформы через запятую (пусто = все)'
+        required: false
+        default: ''
+      methods:
+        description: 'Способы сборки через запятую (пусто = все доступные)'
+        required: false
+        default: ''
+      include_self_hosted:
+        description: 'Включить сборку на self-hosted Jetson'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Дешёвая проверка конфигурации перед дорогими сборками.
+  validate:
+    uses: ./.github/workflows/validate.yml
+
+  matrix:
+    name: Построение матрицы
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.gen.outputs.include }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Сгенерировать матрицу
+        id: gen
+        run: |
+          ARGS=()
+          [ -n "${{ inputs.packages }}" ]  && ARGS+=(--packages "${{ inputs.packages }}")
+          [ -n "${{ inputs.platforms }}" ] && ARGS+=(--platforms "${{ inputs.platforms }}")
+          [ -n "${{ inputs.methods }}" ]   && ARGS+=(--methods "${{ inputs.methods }}")
+          [ "${{ inputs.include_self_hosted }}" = "true" ] && ARGS+=(--include-self-hosted)
+          INCLUDE="$(python3 scripts/generate-matrix.py packages "${ARGS[@]}")"
+          echo "include=${INCLUDE}" >> "$GITHUB_OUTPUT"
+          echo "Матрица:"; echo "${INCLUDE}" | python3 -m json.tool
+
+  build:
+    name: ${{ matrix.name }}
+    needs: matrix
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      # Одна упавшая комбинация не должна скрывать состояние остальных:
+      # знать, что сломалось только под QEMU, важнее, чем сэкономить минуты.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Вычислить имена образов
+        id: img
+        run: |
+          OWNER_REPO="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "base=ghcr.io/${OWNER_REPO}/base-${{ matrix.platform }}:latest" >> "$GITHUB_OUTPUT"
+          echo "name=ghcr.io/${OWNER_REPO}/${{ matrix.package }}-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+
+      # Базовый образ должен быть опубликован раньше. Без этой проверки
+      # отсутствие образа всплывёт как невнятная ошибка внутри buildx.
+      - name: Проверить наличие базового образа
+        run: |
+          if ! docker manifest inspect "${{ steps.img.outputs.base }}" > /dev/null 2>&1; then
+            echo "::error::Базовый образ ${{ steps.img.outputs.base }} не найден в реестре."
+            echo "Сначала выполните workflow 'base-images' (Actions -> base-images -> Run workflow),"
+            echo "затем сделайте образы публичными: страница пакета -> Package settings -> Change visibility."
+            exit 1
+          fi
+          echo "Базовый образ найден: ${{ steps.img.outputs.base }}"
+
+      - name: Установить QEMU
+        if: matrix.needs_qemu
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Вход в GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Теги образа
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          flavor: |
+            suffix=${{ matrix.publish && '' || format('-{0}', matrix.method) }},onlatest=true
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern=v{{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Сборка
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: templates/package.Dockerfile
+          platforms: ${{ matrix.docker_platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.img.outputs.base }}
+            PKG_NAME=${{ matrix.package }}
+            REPO_URL=${{ matrix.repo_url }}
+            REPO_REF=${{ matrix.repo_ref }}
+            SRC_SUBDIR=${{ matrix.src_subdir }}
+            LOCAL_PATH=${{ matrix.local_path }}
+            CUDA_ARCH=${{ matrix.cuda_arch }}
+            APT_DEPS=${{ matrix.apt_deps }}
+            CMAKE_ARGS=${{ matrix.cmake_args }}
+            VCS_FILE=${{ matrix.vcs_file }}
+            PRE_BUILD=${{ matrix.pre_build }}
+            ROSDEP_SKIP_KEYS=${{ matrix.rosdep_skip_keys }}
+          cache-from: |
+            type=gha,scope=${{ matrix.package }}-${{ matrix.platform }}
+            type=registry,ref=${{ steps.img.outputs.name }}:buildcache
+          cache-to: |
+            type=gha,mode=max,scope=${{ matrix.package }}-${{ matrix.platform }}
+            ${{ matrix.publish && format('type=registry,ref={0}:buildcache,mode=max', steps.img.outputs.name) || '' }}
+          provenance: false
+
+      - name: Проверка CUDA в собранном образе
+        run: |
+          TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
+          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" verify-cuda
+
+      - name: Проверка, что пакет виден ROS2
+        run: |
+          TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
+          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
+            bash -lc 'ros2 pkg list | grep -q . && echo "Пакеты ROS2 доступны" && ls /opt/ros_ws/install'

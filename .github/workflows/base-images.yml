@@ -1,0 +1,148 @@
+name: base-images
+
+# Базовые образы: ROS2 + CUDA + системные зависимости под три платформы.
+# Собираются отдельно от пакетов, потому что меняются редко, а времени
+# требуют много (особенно кросс-сборка под QEMU).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'base/**'
+      - 'scripts/install-ros2.sh'
+      - 'scripts/verify-cuda.sh'
+      - 'platforms.yaml'
+      - '.github/workflows/base-images.yml'
+  # Базы тянут apt- и ROS-пакеты, которые дрейфуют. Еженедельная пересборка
+  # ловит поломку до того, как она проявится при сборке пакета.
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Платформы через запятую (пусто = все)'
+        required: false
+        default: ''
+      methods:
+        description: 'Способы сборки через запятую (пусто = все доступные)'
+        required: false
+        default: ''
+      include_self_hosted:
+        description: 'Включить сборку на self-hosted Jetson'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: base-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Дешёвая проверка конфигурации перед дорогими сборками.
+  validate:
+    uses: ./.github/workflows/validate.yml
+
+  matrix:
+    name: Построение матрицы
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.gen.outputs.include }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Сгенерировать матрицу
+        id: gen
+        run: |
+          ARGS=()
+          [ -n "${{ inputs.platforms }}" ] && ARGS+=(--platforms "${{ inputs.platforms }}")
+          [ -n "${{ inputs.methods }}" ]   && ARGS+=(--methods "${{ inputs.methods }}")
+          [ "${{ inputs.include_self_hosted }}" = "true" ] && ARGS+=(--include-self-hosted)
+          INCLUDE="$(python3 scripts/generate-matrix.py bases "${ARGS[@]}")"
+          echo "include=${INCLUDE}" >> "$GITHUB_OUTPUT"
+          echo "Матрица:"; echo "${INCLUDE}" | python3 -m json.tool
+
+  build:
+    name: ${{ matrix.name }}
+    needs: matrix
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR принимает только строчные имена, а владелец репозитория может
+      # содержать заглавные буквы.
+      - name: Вычислить имя образа
+        id: img
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/base-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+
+      # QEMU нужен только когда архитектура раннера не совпадает с целевой.
+      - name: Установить QEMU
+        if: matrix.needs_qemu
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Вход в GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Теги образа
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          # Непубликующие способы (native-arm) получают суффикс, чтобы не
+          # перезаписывать канонический тег.
+          flavor: |
+            suffix=${{ matrix.publish && '' || format('-{0}', matrix.method) }},onlatest=true
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=semver,pattern=v{{version}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Сборка
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.docker_platform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            ROS_DISTRO=${{ matrix.ros_distro }}
+          # Двухслойный кеш: gha быстрый, но локален для ветки и вытесняется;
+          # registry переживает и то, и другое. Для QEMU-сборок это разница
+          # между минутами и часами.
+          cache-from: |
+            type=gha,scope=base-${{ matrix.platform }}
+            type=registry,ref=${{ steps.img.outputs.name }}:buildcache
+          cache-to: |
+            type=gha,mode=max,scope=base-${{ matrix.platform }}
+            ${{ matrix.publish && format('type=registry,ref={0}:buildcache,mode=max', steps.img.outputs.name) || '' }}
+          provenance: false
+
+      - name: Проверка CUDA в образе
+        run: |
+          TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
+          echo "Проверяется: ${TAG}"
+          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
+            bash -lc 'verify-cuda'
+
+      - name: Проверка ROS2 в образе
+        run: |
+          TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
+          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
+            bash -lc 'source /opt/ros/${ROS_DISTRO}/setup.bash && ros2 --help > /dev/null && echo "ROS2 ${ROS_DISTRO}: OK"'

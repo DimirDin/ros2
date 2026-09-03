@@ -1,0 +1,7 @@
+# Драйвер Livox: FAST-LIO2 зависит от него, но в индексе rosdep его нет,
+# поэтому исходники подтягиваем через vcstool.
+repositories:
+  livox_ros_driver2:
+    type: git
+    url: https://github.com/Livox-SDK/livox_ros_driver2.git
+    version: master

@@ -5,7 +5,7 @@
 name: fast-lio2
 description: FAST-LIO2, LiDAR-инерциальная одометрия (HKU MaRS Lab)
 repo: https://github.com/hku-mars/FAST_LIO
-ref: ros2
+ref: ROS2
 src_subdir: .
 platforms: [x86-gpu, jetson-agx-jp6, jetson-nano-jp7]
 apt_deps:

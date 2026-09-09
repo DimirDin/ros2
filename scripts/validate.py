@@ -7,7 +7,9 @@
 """
 from __future__ import annotations
 
+import argparse
 import pathlib
+import subprocess
 import sys
 
 import yaml
@@ -92,6 +94,36 @@ def check_packages(platforms: dict) -> None:
             err(f"{path.name}: src_subdir должен быть относительным путём")
 
 
+def check_remote_refs() -> None:
+    """Проверяет, что указанные repo/ref существуют на самом деле.
+
+    Требует сети, поэтому включается флагом. Ловит опечатки вроде ветки
+    `ros2` вместо `ROS2` — имена веток регистрозависимы, и такая ошибка
+    иначе всплывает только на шаге клонирования, после сборки базы.
+    """
+    for path in sorted((ROOT / "packages").glob("*.yaml")):
+        d = yaml.safe_load(path.read_text())
+        repo = d.get("repo")
+        if not repo:
+            continue
+        ref = d.get("ref", "main")
+        try:
+            res = subprocess.run(
+                ["git", "ls-remote", "--heads", "--tags", repo, ref],
+                capture_output=True, text=True, timeout=60,
+            )
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            err(f"{path.name}: не удалось опросить {repo}: {exc}")
+            continue
+
+        if res.returncode != 0:
+            err(f"{path.name}: репозиторий недоступен: {repo}\n    {res.stderr.strip()}")
+        elif not res.stdout.strip():
+            err(f"{path.name}: в {repo} нет ветки или тега {ref!r}")
+        else:
+            print(f"  ok  {d['name']}: {repo} @ {ref}")
+
+
 def check_scripts() -> None:
     for path in list((ROOT / "scripts").glob("*.sh")) + list((ROOT / "packages").glob("*.sh")):
         text = path.read_text()
@@ -104,9 +136,19 @@ def check_scripts() -> None:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--check-remotes",
+        action="store_true",
+        help="дополнительно проверить, что repo/ref пакетов существуют (нужна сеть)",
+    )
+    args = ap.parse_args()
+
     platforms = check_platforms()
     check_packages(platforms)
     check_scripts()
+    if args.check_remotes:
+        check_remote_refs()
 
     if ERRORS:
         print("Найдены ошибки конфигурации:\n")

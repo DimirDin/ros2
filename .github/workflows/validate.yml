@@ -19,6 +19,11 @@ jobs:
       - name: Согласованность платформ и манифестов
         run: python3 scripts/validate.py
 
+      # Отдельным шагом, потому что требует сети: ловит опечатки в repo/ref
+      # до того, как они превратятся в упавший git clone после сборки базы.
+      - name: Существование репозиториев и веток пакетов
+        run: python3 scripts/validate.py --check-remotes
+
       - name: Синтаксис shell-скриптов
         run: |
           for f in scripts/*.sh packages/*.sh; do

@@ -105,22 +105,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Обязательно ПОСЛЕ входа в реестр: базовые образы приватные, и без
-      # авторизации manifest inspect вернёт отказ доступа, который легко
-      # принять за отсутствие образа.
+      # авторизации проверка вернёт отказ доступа, который легко принять за
+      # отсутствие образа.
+      #
+      # Используется imagetools, а не `docker manifest inspect`: последняя —
+      # экспериментальная команда CLI и без включённого экспериментального
+      # режима падает независимо от того, есть образ или нет.
       - name: Проверить наличие базового образа
         run: |
           BASE='${{ steps.img.outputs.base }}'
-          if ERR="$(docker manifest inspect "${BASE}" 2>&1 >/dev/null)"; then
-            echo "Базовый образ найден: ${BASE}"
+          echo "Ищем базовый образ: ${BASE}"
+
+          if docker buildx imagetools inspect "${BASE}" > /tmp/base-inspect.txt 2>&1; then
+            echo "Базовый образ найден."
+            head -20 /tmp/base-inspect.txt
             exit 0
           fi
-          echo "Ответ реестра: ${ERR}"
-          case "${ERR}" in
-            *denied*|*unauthorized*|*authentication*)
-              echo "::error::Нет доступа к ${BASE}. Проверьте Settings -> Actions -> General -> Workflow permissions: нужен режим Read and write." ;;
-            *)
-              echo "::error::Базовый образ ${BASE} отсутствует в реестре. Сначала выполните workflow 'base-images'." ;;
-          esac
+
+          echo "--- ответ реестра ---"
+          cat /tmp/base-inspect.txt
+          echo "---------------------"
+          if grep -qiE 'denied|unauthorized|authentication|forbidden' /tmp/base-inspect.txt; then
+            echo "::error::Нет доступа к ${BASE}. Проверьте Settings -> Actions -> General -> Workflow permissions (нужен Read and write)."
+          else
+            echo "::error::Базовый образ ${BASE} не найден. Сначала выполните workflow 'base-images'."
+          fi
           exit 1
 
       - name: Теги образа
@@ -128,8 +137,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.img.outputs.name }}
+          # Условие инвертировано намеренно: в выражениях GitHub пустая
+          # строка ложна, поэтому запись `publish && '' || suffix` подставляла
+          # бы суффикс и публикующим комбинациям. Истинное значение обязано
+          # стоять в первой ветке.
           flavor: |
-            suffix=${{ matrix.publish && '' || format('-{0}', matrix.method) }},onlatest=true
+            suffix=${{ !matrix.publish && format('-{0}', matrix.method) || '' }},onlatest=true
           tags: |
             type=ref,event=branch
             type=sha,prefix=sha-

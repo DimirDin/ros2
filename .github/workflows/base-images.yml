@@ -104,8 +104,12 @@ jobs:
           images: ${{ steps.img.outputs.name }}
           # Непубликующие способы (native-arm) получают суффикс, чтобы не
           # перезаписывать канонический тег.
+          # Условие инвертировано намеренно: в выражениях GitHub пустая
+          # строка ложна, поэтому запись `publish && '' || suffix` подставляла
+          # бы суффикс и публикующим комбинациям. Истинное значение обязано
+          # стоять в первой ветке.
           flavor: |
-            suffix=${{ matrix.publish && '' || format('-{0}', matrix.method) }},onlatest=true
+            suffix=${{ !matrix.publish && format('-{0}', matrix.method) || '' }},onlatest=true
           tags: |
             type=ref,event=branch
             type=sha,prefix=sha-

@@ -89,18 +89,6 @@ jobs:
           echo "base=ghcr.io/${OWNER_REPO}/base-${{ matrix.platform }}:latest" >> "$GITHUB_OUTPUT"
           echo "name=ghcr.io/${OWNER_REPO}/${{ matrix.package }}-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
 
-      # Базовый образ должен быть опубликован раньше. Без этой проверки
-      # отсутствие образа всплывёт как невнятная ошибка внутри buildx.
-      - name: Проверить наличие базового образа
-        run: |
-          if ! docker manifest inspect "${{ steps.img.outputs.base }}" > /dev/null 2>&1; then
-            echo "::error::Базовый образ ${{ steps.img.outputs.base }} не найден в реестре."
-            echo "Сначала выполните workflow 'base-images' (Actions -> base-images -> Run workflow),"
-            echo "затем сделайте образы публичными: страница пакета -> Package settings -> Change visibility."
-            exit 1
-          fi
-          echo "Базовый образ найден: ${{ steps.img.outputs.base }}"
-
       - name: Установить QEMU
         if: matrix.needs_qemu
         uses: docker/setup-qemu-action@v3
@@ -115,6 +103,25 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Обязательно ПОСЛЕ входа в реестр: базовые образы приватные, и без
+      # авторизации manifest inspect вернёт отказ доступа, который легко
+      # принять за отсутствие образа.
+      - name: Проверить наличие базового образа
+        run: |
+          BASE='${{ steps.img.outputs.base }}'
+          if ERR="$(docker manifest inspect "${BASE}" 2>&1 >/dev/null)"; then
+            echo "Базовый образ найден: ${BASE}"
+            exit 0
+          fi
+          echo "Ответ реестра: ${ERR}"
+          case "${ERR}" in
+            *denied*|*unauthorized*|*authentication*)
+              echo "::error::Нет доступа к ${BASE}. Проверьте Settings -> Actions -> General -> Workflow permissions: нужен режим Read and write." ;;
+            *)
+              echo "::error::Базовый образ ${BASE} отсутствует в реестре. Сначала выполните workflow 'base-images'." ;;
+          esac
+          exit 1
 
       - name: Теги образа
         id: meta

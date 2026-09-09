@@ -64,7 +64,7 @@ case "${KIND}" in
         --load .
     echo
     echo "Собрано: ${TAG}"
-    docker run --rm --platform "${DOCKER_PLATFORM}" "${TAG}" bash -lc verify-cuda
+    docker run --rm --platform "${DOCKER_PLATFORM}" "${TAG}" verify-cuda
     ;;
 
   package)

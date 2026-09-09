@@ -168,4 +168,4 @@ jobs:
         run: |
           TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
           docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
-            bash -lc 'ros2 pkg list | grep -q . && echo "Пакеты ROS2 доступны" && ls /opt/ros_ws/install'
+            bash -c 'ros2 pkg list | grep -q . && echo "Пакеты ROS2 доступны" && ls /opt/ros_ws/install'

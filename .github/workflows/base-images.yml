@@ -138,11 +138,10 @@ jobs:
         run: |
           TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
           echo "Проверяется: ${TAG}"
-          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
-            bash -lc 'verify-cuda'
+          docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" verify-cuda
 
       - name: Проверка ROS2 в образе
         run: |
           TAG="$(echo '${{ steps.meta.outputs.tags }}' | head -1)"
           docker run --rm --platform ${{ matrix.docker_platform }} "${TAG}" \
-            bash -lc 'source /opt/ros/${ROS_DISTRO}/setup.bash && ros2 --help > /dev/null && echo "ROS2 ${ROS_DISTRO}: OK"'
+            bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && ros2 --help > /dev/null && echo "ROS2 ${ROS_DISTRO}: OK"'

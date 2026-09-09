@@ -21,6 +21,15 @@ skip()  { printf '  \033[33m—\033[0m %s\n' "$*"; }
 head_() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
 CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
+
+# Login-шелл (bash -l) выполняет /etc/profile, а тот в Ubuntu перезаписывает
+# PATH дефолтным значением, выбрасывая ${CUDA_HOME}/bin из ENV образа.
+# Поэтому не полагаемся на унаследованный PATH, а дописываем каталог сами.
+case ":${PATH}:" in
+    *":${CUDA_HOME}/bin:"*) ;;
+    *) PATH="${CUDA_HOME}/bin:${PATH}" ;;
+esac
+export PATH
 EXPECTED_ARCH="${CUDA_ARCH:-${CUDA_ARCH_DEFAULT:-}}"
 WS="${1:-/opt/ros_ws}"
 
@@ -34,10 +43,10 @@ head_ "1. Статическая проверка CUDA Toolkit"
 if command -v nvcc >/dev/null 2>&1; then
     ok "nvcc: $(nvcc --version | awk '/release/{print $5, $6}' | tr -d ',')"
 else
-    fail "nvcc не найден в PATH"
+    fail "nvcc не найден (искали в PATH и ${CUDA_HOME}/bin)"
 fi
 
-if find "${CUDA_HOME}" /usr/lib -name 'libcudart.so*' -print -quit 2>/dev/null | grep -q .; then
+if find "${CUDA_HOME}" /usr/local /usr/lib -name 'libcudart.so*' -print -quit 2>/dev/null | grep -q .; then
     ok "libcudart присутствует в образе"
 else
     fail "libcudart не найдена"

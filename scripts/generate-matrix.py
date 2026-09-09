@@ -38,9 +38,23 @@ def load_packages() -> list[dict]:
 
 
 def csv(value: str | None) -> list[str] | None:
+    """Разбирает список через запятую, отбрасывая пробелы и пустые элементы."""
     if not value:
         return None
-    return [v.strip() for v in value.split(",") if v.strip()]
+    items = [v.strip() for v in value.split(",") if v.strip()]
+    return items or None
+
+
+def check_known(requested, known, what: str) -> None:
+    """Опечатка в фильтре иначе проявилась бы как пустая матрица без причины."""
+    if not requested:
+        return
+    unknown = [r for r in requested if r not in known]
+    if unknown:
+        sys.exit(
+            f"Неизвестные значения фильтра {what}: {', '.join(unknown)}\n"
+            f"Допустимые: {', '.join(sorted(known))}"
+        )
 
 
 def runner_for(platform: dict, method: str):
@@ -163,14 +177,23 @@ def main() -> None:
     want_platforms = csv(args.platforms)
     want_methods = csv(args.methods)
 
+    check_known(want_platforms, set(platforms), "--platforms")
+    check_known(
+        want_methods,
+        {m for p in platforms.values() for m in p["build_methods"]},
+        "--methods",
+    )
+
     if args.kind == "bases":
         rows = build_bases(
             platforms, want_platforms, want_methods, args.include_self_hosted
         )
     else:
+        pkgs = load_packages()
+        check_known(csv(args.packages), {p["name"] for p in pkgs}, "--packages")
         rows = build_packages(
             platforms,
-            load_packages(),
+            pkgs,
             want_platforms,
             want_methods,
             csv(args.packages),
@@ -178,7 +201,11 @@ def main() -> None:
         )
 
     if not rows:
-        sys.exit("Матрица пуста: проверьте фильтры")
+        sys.exit(
+            "Матрица пуста: заданные фильтры не дали ни одной комбинации.\n"
+            "Проверьте, что платформа перечислена в поле 'platforms' манифеста "
+            "пакета, а способ сборки — в 'build_methods' платформы."
+        )
 
     print(json.dumps(rows, ensure_ascii=False))
 

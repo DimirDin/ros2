@@ -60,11 +60,22 @@ jobs:
       - name: Сгенерировать матрицу
         id: gen
         run: |
+          # Явные if вместо `cond && cmd`: под `set -e` такая запись
+          # непрозрачна, а диагностику здесь важно не потерять.
           ARGS=()
-          [ -n "${{ inputs.packages }}" ]  && ARGS+=(--packages "${{ inputs.packages }}")
-          [ -n "${{ inputs.platforms }}" ] && ARGS+=(--platforms "${{ inputs.platforms }}")
-          [ -n "${{ inputs.methods }}" ]   && ARGS+=(--methods "${{ inputs.methods }}")
-          [ "${{ inputs.include_self_hosted }}" = "true" ] && ARGS+=(--include-self-hosted)
+          if [ -n "${{ inputs.packages }}" ]; then
+            ARGS+=(--packages "${{ inputs.packages }}")
+          fi
+          if [ -n "${{ inputs.platforms }}" ]; then
+            ARGS+=(--platforms "${{ inputs.platforms }}")
+          fi
+          if [ -n "${{ inputs.methods }}" ]; then
+            ARGS+=(--methods "${{ inputs.methods }}")
+          fi
+          if [ "${{ inputs.include_self_hosted }}" = "true" ]; then
+            ARGS+=(--include-self-hosted)
+          fi
+          echo "Аргументы генератора: ${ARGS[*]:-<без фильтров>}"
           INCLUDE="$(python3 scripts/generate-matrix.py packages "${ARGS[@]}")"
           echo "include=${INCLUDE}" >> "$GITHUB_OUTPUT"
           echo "Матрица:"; echo "${INCLUDE}" | python3 -m json.tool

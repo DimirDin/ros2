@@ -62,6 +62,27 @@ def runner_for(platform: dict, method: str):
     return platform["runners"][method]
 
 
+def expand(values, platform: dict, pid: str) -> str:
+    """Подставляет параметры платформы в аргументы манифеста.
+
+    Позволяет манифесту задать флаг, значение которого зависит от платформы,
+    например -DDISTRO_ROS={ros_distro}: humble для JetPack 6, jazzy для JP7.
+    Иначе такой пакет пришлось бы описывать отдельным манифестом на платформу.
+    """
+    subs = {
+        "ros_distro": platform["ros_distro"],
+        "cuda_arch": platform["cuda_arch"],
+        "platform": pid,
+    }
+    out = []
+    for v in values or []:
+        s = str(v)
+        for key, val in subs.items():
+            s = s.replace("{" + key + "}", val)
+        out.append(s)
+    return " ".join(out)
+
+
 def is_publisher(platform: dict, method: str) -> bool:
     """Публикует ли эта комбинация образ под каноническим тегом.
 
@@ -147,7 +168,7 @@ def build_packages(
                         "src_subdir": pkg.get("src_subdir", "."),
                         "local_path": pkg.get("local_path", ""),
                         "apt_deps": " ".join(pkg.get("apt_deps") or []),
-                        "cmake_args": " ".join(pkg.get("cmake_args") or []),
+                        "cmake_args": expand(pkg.get("cmake_args"), p, pid),
                         "vcs_file": pkg.get("vcs_file", ""),
                         "pre_build": pkg.get("pre_build", ""),
                         "rosdep_skip_keys": pkg.get("rosdep_skip_keys", ""),

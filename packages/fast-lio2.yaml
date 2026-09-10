@@ -17,3 +17,8 @@ pre_build: fast-lio2-prebuild.sh
 rosdep_skip_keys: livox_ros_driver2
 cmake_args:
   - -DCMAKE_BUILD_TYPE=Release
+  # Флаги, которые livox_ros_driver2 ожидает от своего build.sh.
+  # {ros_distro} подставляется генератором матрицы под каждую платформу:
+  # humble для JetPack 6 и x86, jazzy для JetPack 7.
+  - -DROS_EDITION=ROS2
+  - -DDISTRO_ROS={ros_distro}

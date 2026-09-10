@@ -14,6 +14,10 @@ ARG L4T_RELEASE=r39.2
 ARG L4T_SOC=som
 ARG CUDA_PKG_VERSION=13-2
 ARG ROS_DISTRO=jazzy
+# Модель CPU для эмуляции QEMU. Объявлена как ARG, а не ENV: значение
+# доступно командам RUN во время сборки, но не остаётся в готовом образе,
+# где оно бессмысленно. Пусто при нативной сборке — тогда qemu не участвует.
+ARG QEMU_CPU=""
 
 ENV ROS_DISTRO=${ROS_DISTRO} \
     LANG=en_US.UTF-8 \

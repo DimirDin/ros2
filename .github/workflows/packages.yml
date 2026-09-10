@@ -182,6 +182,7 @@ jobs:
             VCS_FILE=${{ matrix.vcs_file }}
             PRE_BUILD=${{ matrix.pre_build }}
             ROSDEP_SKIP_KEYS=${{ matrix.rosdep_skip_keys }}
+            QEMU_CPU=${{ matrix.qemu_cpu }}
           cache-from: |
             type=gha,scope=${{ matrix.package }}-${{ matrix.platform }}
             type=registry,ref=${{ steps.img.outputs.name }}:buildcache

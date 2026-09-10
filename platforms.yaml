@@ -28,6 +28,12 @@ platforms:
     l4t_release: r36.5
     l4t_soc: t234
     jetpack: "6.2.2"
+    # По умолчанию QEMU эмулирует CPU с максимальным набором расширений
+    # (включая SVE). На бинарях Ubuntu 22.04 это приводит к сегфолтам в dpkg
+    # и к порче вывода cudafe++. Ограничиваем модель до Cortex-A76: та же
+    # ARMv8.2, что у Orin, но без SVE. На сборку кода не влияет — целевую
+    # архитектуру задаёт компилятор, а не эмулятор.
+    qemu_cpu: cortex-a76
     build_methods: [cross, native-arm, native]
     runners:
       cross: ubuntu-22.04

@@ -36,6 +36,10 @@ ARG ROSDEP_SKIP_KEYS=""
 ARG PRE_BUILD=""
 # Дополнительные аргументы CMake (через пробел).
 ARG CMAKE_ARGS=""
+# Модель CPU для эмуляции QEMU. Объявлена как ARG, а не ENV: значение
+# доступно командам RUN во время сборки, но не остаётся в готовом образе,
+# где оно бессмысленно. Пусто при нативной сборке — тогда qemu не участвует.
+ARG QEMU_CPU=""
 ARG WS=/opt/ros_ws
 
 ENV DEBIAN_FRONTEND=noninteractive \

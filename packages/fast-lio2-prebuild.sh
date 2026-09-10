@@ -32,3 +32,26 @@ else
     echo "Не найден ${DRIVER}: проверьте vcs_file в манифесте" >&2
     exit 1
 fi
+
+# --- 3. Стандарт C++ ---------------------------------------------------------
+# FAST-LIO2 жёстко прописывает -std=c++14 в ADD_COMPILE_OPTIONS и
+# CMAKE_CXX_FLAGS, поэтому -DCMAKE_CXX_STANDARD=17 снаружи не действует:
+# у GCC побеждает последний -std в командной строке.
+#
+# Заголовки rclcpp в Jazzy требуют C++17 (std::is_same_v и подобное), и под
+# C++14 сборка разваливается прямо в них. Humble с C++17 тоже собирается,
+# поэтому поднимаем стандарт безусловно — так поведение одинаково на всех
+# платформах и не зависит от дистрибутива.
+PKG_DIR="${WS}/src/${PKG_NAME:-fast-lio2}"
+if [ -f "${PKG_DIR}/CMakeLists.txt" ]; then
+    sed -i \
+        -e 's/-std=c++14/-std=c++17/g' \
+        -e 's/-std=c++0x/-std=c++17/g' \
+        -e 's/CMAKE_CXX_STANDARD 14/CMAKE_CXX_STANDARD 17/' \
+        "${PKG_DIR}/CMakeLists.txt"
+    echo "Стандарт C++ поднят до 17:"
+    grep -nE 'std=c\+\+|CMAKE_CXX_STANDARD' "${PKG_DIR}/CMakeLists.txt" || true
+else
+    echo "Не найден ${PKG_DIR}/CMakeLists.txt" >&2
+    exit 1
+fi

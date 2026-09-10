@@ -128,6 +128,7 @@ def build_bases(platforms, want_platforms, want_methods, include_self_hosted):
                     # с целевой, то есть ровно для метода cross.
                     "publish": is_publisher(p, method),
                     "needs_qemu": method == "cross",
+                    "qemu_cpu": p.get("qemu_cpu", "") if method == "cross" else "",
                     "name": f"{pid} / {method}",
                 }
             )
@@ -174,6 +175,7 @@ def build_packages(
                         "rosdep_skip_keys": pkg.get("rosdep_skip_keys", ""),
                         "publish": is_publisher(p, method),
                         "needs_qemu": method == "cross",
+                        "qemu_cpu": p.get("qemu_cpu", "") if method == "cross" else "",
                         "name": f"{pkg['name']} / {pid} / {method}",
                     }
                 )

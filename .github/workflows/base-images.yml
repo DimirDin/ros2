@@ -136,6 +136,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             ROS_DISTRO=${{ matrix.ros_distro }}
+            QEMU_CPU=${{ matrix.qemu_cpu }}
           # Двухслойный кеш: gha быстрый, но локален для ветки и вытесняется;
           # registry переживает и то, и другое. Для QEMU-сборок это разница
           # между минутами и часами.

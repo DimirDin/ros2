@@ -136,10 +136,14 @@ def check_scripts() -> None:
         text = path.read_text()
         if not text.startswith("#!"):
             err(f"{path.relative_to(ROOT)}: нет shebang")
-        # verify-cuda.sh сознательно не использует -e: он должен пройти все
-        # проверки и сообщить итог, а не падать на первой неудачной.
-        if "set -e" not in text and path.name != "verify-cuda.sh":
-            err(f"{path.relative_to(ROOT)}: нет 'set -e'")
+        # Скрипт обязан падать на первой ошибке — кроме тех, чья задача
+        # пройти все проверки и сообщить итог. Такие обязаны объявить это
+        # явным комментарием, чтобы отсутствие set -e не было случайностью.
+        opted_out = "# намеренно без set -e" in text
+        if "set -e" not in text and not opted_out:
+            err(f"{path.relative_to(ROOT)}: нет 'set -e' "
+                f"(если так задумано, добавьте комментарий "
+                f"'# намеренно без set -e: <причина>')")
 
 
 def main() -> None:

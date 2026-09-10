@@ -9,5 +9,6 @@ name: cuda-probe
 description: Проверочный ROS2-пакет с CUDA-ядром
 local_path: cuda_probe
 platforms: [x86-gpu, jetson-agx-jp6, jetson-nano-jp7]
+pre_build: cuda-probe-prebuild.sh
 apt_deps: []
 cmake_args: []

@@ -27,17 +27,32 @@
 | `native-arm` | `ubuntu-24.04-arm` | нет | нет |
 | `native` (Jetson) | self-hosted Jetson | нет | да |
 
+## Состояние
+
+| | x86-gpu | agx-jp6 `native-arm` | agx-jp6 `cross` | nano-jp7 `native-arm` | nano-jp7 `cross` |
+|---|---|---|---|---|---|
+| базовый образ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cuda-probe` | ✅ | ✅ | ✗ | ✅ | ✅ |
+| `fast-lio2` | ✅ | ✅ | ✗ | ⏳ | ⏳ |
+
+✅ — прошло в CI, образ опубликован. ⏳ — исправление внесено, проверяется.
+✗ — не работает, причина установлена.
+
+Кросс-сборка под JetPack 6 через QEMU не работает из-за ошибки эмулятора —
+тот же образ нативно на ARM собирается без нареканий, а JetPack 7 через ту же
+эмуляцию проходит. Разбор и рабочий путь: [docs/results.md](docs/results.md).
+
 ## Готовые образы
 
 ```bash
 # базовый образ
-docker pull ghcr.io/<owner>/<repo>/base-jetson-agx-jp6:latest
+docker pull ghcr.io/dimirdin/ros2/base-jetson-agx-jp6:latest
 
-# FAST-LIO2, собранный под AGX Orin
-docker pull ghcr.io/<owner>/<repo>/fast-lio2-jetson-agx-jp6:latest
+# FAST-LIO2, собранный под AGX Orin на ARM64-раннере
+docker pull ghcr.io/dimirdin/ros2/fast-lio2-jetson-agx-jp6:latest-native-arm
 
 # проверка CUDA внутри образа
-docker run --rm ghcr.io/<owner>/<repo>/cuda-probe-x86-gpu:latest verify-cuda
+docker run --rm ghcr.io/dimirdin/ros2/cuda-probe-x86-gpu:latest verify-cuda
 ```
 
 ## Добавление пакета
@@ -75,6 +90,8 @@ docs/                        архитектура, развёртывание,
 
 ## Документация
 
+* [Результаты](docs/results.md) — что сделано, чем подтверждается, где
+  честные ограничения
 * [Архитектура](docs/architecture.md) — различия платформ, почему приняты
   именно такие решения
 * [Развёртывание](docs/deployment.md) — установка пайплайна с нуля,

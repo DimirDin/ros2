@@ -63,11 +63,11 @@ PCL. Требование ТЗ «собираемые библиотеки до�
 
 ```bash
 # в собранном образе
-docker run --rm ghcr.io/<owner>/<repo>/cuda-probe-x86-gpu:latest verify-cuda
+docker run --rm ghcr.io/dimirdin/ros2/cuda-probe-x86-gpu:latest verify-cuda
 
 # на устройстве, с доступом к GPU
 docker run --rm --runtime nvidia \
-  ghcr.io/<owner>/<repo>/cuda-probe-jetson-agx-jp6:latest verify-cuda
+  ghcr.io/dimirdin/ros2/cuda-probe-jetson-agx-jp6:latest-native-arm verify-cuda
 ```
 
 ## Как читать вывод

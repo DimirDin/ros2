@@ -155,7 +155,7 @@ scripts/build-local.sh package my-package x86-gpu
 Образы публикуются как:
 
 ```
-ghcr.io/<owner>/<repo>/<name>-<platform>:latest
+ghcr.io/dimirdin/ros2/<name>-<platform>:latest
 ```
 
-например `ghcr.io/<owner>/<repo>/fast-lio2-jetson-agx-jp6:latest`.
+например `ghcr.io/dimirdin/ros2/fast-lio2-x86-gpu:latest`.

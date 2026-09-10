@@ -52,6 +52,11 @@ platforms:
     l4t_release: r39.2
     l4t_soc: som
     jetpack: "7.2"
+    # `max` — умолчание qemu-aarch64 в режиме linux-user. Задаём явно, потому
+    # что пустое значение QEMU_CPU эмулятор отвергает с
+    # "-cpu option cannot be empty", а ARG с пустым значением всё равно
+    # попадает в окружение и читается каждым эмулируемым процессом.
+    qemu_cpu: max
     build_methods: [cross, native-arm, native]
     runners:
       cross: ubuntu-22.04

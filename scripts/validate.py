@@ -47,8 +47,15 @@ def check_platforms() -> dict:
 
         # Кросс-сборка имеет смысл только когда целевая архитектура отличается
         # от архитектуры раннера.
-        if "cross" in p.get("build_methods", []) and p["docker_platform"] == "linux/amd64":
-            err(f"{pid}: способ 'cross' для linux/amd64 бессмыслен")
+        if "cross" in p.get("build_methods", []):
+            if p["docker_platform"] == "linux/amd64":
+                err(f"{pid}: способ 'cross' для linux/amd64 бессмыслен")
+            # Пустое значение QEMU_CPU эмулятор отвергает с
+            # "-cpu option cannot be empty", и падает каждый эмулируемый
+            # процесс, включая тот, что просто ставит пакеты.
+            if not p.get("qemu_cpu"):
+                err(f"{pid}: для способа 'cross' обязателен непустой qemu_cpu "
+                    f"(например 'max' — умолчание qemu)")
 
     return {p["id"]: p for p in platforms}
 

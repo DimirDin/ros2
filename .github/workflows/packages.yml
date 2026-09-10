@@ -35,13 +35,20 @@ on:
         description: 'Включить сборку на self-hosted Jetson'
         type: boolean
         default: false
+      no_cache:
+        description: 'Собирать без кеша (для диагностики плавающих отказов)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: packages-${{ github.ref }}
+  # Ручные прогоны получают уникальную группу и не отменяют друг друга:
+  # серия диагностических замеров иначе невозможна. github.run_id стоит в
+  # первой ветке намеренно — пустая строка в выражениях GitHub ложна.
+  group: packages-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'auto' }}
   cancel-in-progress: true
 
 jobs:
@@ -167,6 +174,7 @@ jobs:
           file: templates/package.Dockerfile
           platforms: ${{ matrix.docker_platform }}
           push: true
+          no-cache: ${{ inputs.no_cache == true }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |

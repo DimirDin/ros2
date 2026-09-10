@@ -121,6 +121,7 @@ ghcr.io/dimirdin/ros2/cuda-probe-jetson-agx-jp6:latest-native-arm
 ghcr.io/dimirdin/ros2/cuda-probe-jetson-nano-jp7:latest
 ghcr.io/dimirdin/ros2/fast-lio2-x86-gpu:latest
 ghcr.io/dimirdin/ros2/fast-lio2-jetson-agx-jp6:latest-native-arm
+ghcr.io/dimirdin/ros2/fast-lio2-jetson-nano-jp7:latest-native-arm
 ```
 
 Суффикс `-native-arm` означает, что канонический тег пишет способ `cross`, а
